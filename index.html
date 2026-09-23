@@ -52,19 +52,24 @@
   <!-- FORMULÁRIO DO CANDIDATO -->
   <main id="viewForm" class="max-w-4xl mx-auto px-4 py-8 flex-1 w-full">
     
-    <!-- CARD DO CARGO ATIVO -->
+    <!-- CARD DO CARGO ATIVO SINCRONIZADO NA NUVEM -->
     <div class="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
         <div class="flex items-center gap-2">
           <span class="text-[11px] font-bold text-[#0a2540] uppercase tracking-wider">Vaga Selecionada</span>
           <span class="text-[10px] bg-orange-100 text-[#ea580c] px-2 py-0.5 rounded font-bold">🔒 Definida pela Administração</span>
         </div>
-        <h2 id="displayCargo" class="text-xl font-bold text-slate-900 font-display mt-0.5">Técnico de Manutenção</h2>
+        <h2 id="displayCargo" class="text-xl font-bold text-slate-900 font-display mt-0.5">Carregando vaga...</h2>
         <p class="text-xs text-slate-600">Somente a administração da Infralink pode definir ou alterar o cargo desta ficha.</p>
       </div>
-      <button onclick="abrirModalSenha()" class="text-xs font-semibold text-[#0a2540] bg-white hover:bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-lg whitespace-nowrap shadow-xs">
-        Alterar Cargo (Admin)
-      </button>
+      <div class="flex gap-2">
+        <button onclick="copiarLinkVaga()" class="text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg whitespace-nowrap shadow-2xs">
+          📋 Copiar Link da Vaga
+        </button>
+        <button onclick="abrirModalSenha()" class="text-xs font-semibold text-[#0a2540] bg-white hover:bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-lg whitespace-nowrap shadow-2xs">
+          Alterar Cargo (Admin)
+        </button>
+      </div>
     </div>
 
     <!-- CAMPOS DA FICHA -->
@@ -244,10 +249,86 @@
     const SUPABASE_KEY = 'sb_publishable_iXvaaoES9YJUt8zfVDBH8g_GxZpP1eB';
 
     let listaCandidatosAtual = [];
-    let cargoAtual = localStorage.getItem('cargo_infralink') || 'Técnico de Manutenção';
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('cargo')) cargoAtual = params.get('cargo');
-    document.getElementById('displayCargo').innerText = cargoAtual;
+    let cargoAtual = 'Técnico de Manutenção';
+
+    // 1. CARREGAR VAGA SINCRONIZADA DA NUVEM (SUPABASE)
+    async function sincronizarCargoNuvem() {
+      // Prioridade 1: parâmetro da URL se houver ?cargo=...
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('cargo')) {
+        cargoAtual = decodeURIComponent(params.get('cargo'));
+        document.getElementById('displayCargo').innerText = cargoAtual;
+        return;
+      }
+
+      // Prioridade 2: Buscar da nuvem no Supabase
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/configuracoes?chave=eq.cargo_ativo&select=valor`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0 && data[0].valor) {
+            cargoAtual = data[0].valor;
+            localStorage.setItem('cargo_infralink', cargoAtual);
+            document.getElementById('displayCargo').innerText = cargoAtual;
+            return;
+          }
+        }
+      } catch(e) {
+        console.error('Erro ao ler cargo da nuvem:', e);
+      }
+
+      // Fallback local se estiver offline
+      cargoAtual = localStorage.getItem('cargo_infralink') || 'Técnico de Manutenção';
+      document.getElementById('displayCargo').innerText = cargoAtual;
+    }
+    sincronizarCargoNuvem();
+
+    // DEFINIR NOVO CARGO E SALVAR NA NUVEM
+    async function definirNovoCargo() {
+      const novo = prompt('Informe o novo cargo da vaga para a ficha:', cargoAtual);
+      if (novo && novo.trim()) {
+        cargoAtual = novo.trim();
+        document.getElementById('displayCargo').innerText = cargoAtual;
+        localStorage.setItem('cargo_infralink', cargoAtual);
+
+        // Salva no Supabase para sincronizar em todos os celulares
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/configuracoes`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({
+              chave: 'cargo_ativo',
+              valor: cargoAtual,
+              atualizado_em: new Date().toISOString()
+            })
+          });
+          alert('Cargo salvo na nuvem com sucesso: ' + cargoAtual + '\nJá está atualizado para todos os celulares!');
+        } catch(err) {
+          console.error('Erro ao salvar cargo na nuvem:', err);
+          alert('Cargo salvo localmente: ' + cargoAtual);
+        }
+      }
+    }
+
+    function copiarLinkVaga() {
+      const urlBase = window.location.origin + window.location.pathname;
+      const urlCompleta = `${urlBase}?cargo=${encodeURIComponent(cargoAtual)}`;
+      navigator.clipboard.writeText(urlCompleta).then(() => {
+        alert('Link da vaga copiado com sucesso:\n' + urlCompleta + '\n\nPode colar no WhatsApp! Quem abrir verá diretamente esta vaga.');
+      }).catch(() => {
+        prompt('Copie o link abaixo para enviar:', urlCompleta);
+      });
+    }
 
     function abrirModalSenha() {
       document.getElementById('modalSenha').classList.remove('hidden');
@@ -283,15 +364,7 @@
         document.getElementById('btnAbrirAdmin').classList.remove('hidden');
       }
     }
-    function definirNovoCargo() {
-      const novo = prompt('Informe o novo cargo da vaga para a ficha:', cargoAtual);
-      if (novo && novo.trim()) {
-        cargoAtual = novo.trim();
-        localStorage.setItem('cargo_infralink', cargoAtual);
-        document.getElementById('displayCargo').innerText = cargoAtual;
-        alert('Cargo atualizado para: ' + cargoAtual);
-      }
-    }
+
     function calcularIdade(dataStr) {
       if (!dataStr) return;
       const b = new Date(dataStr);
@@ -300,6 +373,7 @@
       if (hoje.getMonth() < b.getMonth() || (hoje.getMonth() === b.getMonth() && hoje.getDate() < b.getDate())) age--;
       if (age >= 14) document.getElementById('campoIdade').value = age;
     }
+
     async function buscarCep(val) {
       const clean = val.replace(/\D/g, '');
       if (clean.length === 8) {
@@ -364,7 +438,6 @@
         return;
       }
 
-      // Tenta apagar no Supabase
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/candidaturas?id=eq.${id}`, {
           method: 'DELETE',
@@ -377,12 +450,10 @@
         console.error('Erro ao excluir no Supabase:', err);
       }
 
-      // Remove do cache local
       let local = getListaLocal();
       local = local.filter(c => c.id != id);
       localStorage.setItem('candidatos_infralink', JSON.stringify(local));
 
-      // Remove da visualização em tela
       listaCandidatosAtual = listaCandidatosAtual.filter(c => c.id != id);
       renderizarTabela(listaCandidatosAtual);
     }
