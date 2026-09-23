@@ -1,5 +1,5 @@
-<!DOCTYPE html> 
-<html lang="pt-BR"> 
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -39,7 +39,7 @@
         </div>
       </div>
 
-      <!-- BOTÃO DISCRETO DA ÁREA DO RECRUTADOR -->
+      <!-- BOTÃO DA ÁREA DO RECRUTADOR -->
       <div class="flex items-center gap-2">
         <button id="btnAbrirAdmin" onclick="abrirModalSenha()" class="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg flex items-center gap-1.5 transition-colors">
           🔒 Área do Recrutador
@@ -169,7 +169,7 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
       <div>
         <h2 class="text-2xl font-bold font-display text-slate-900">Painel do Recrutador - Infralink</h2>
-        <p class="text-xs text-slate-500">Currículos sincronizados em tempo real com o banco de dados Supabase na nuvem</p>
+        <p class="text-xs text-slate-500">Gestão de currículos e candidaturas recebidas</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button onclick="mostrarView('form')" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold">
@@ -189,10 +189,10 @@
       <div class="p-4 border-b flex justify-between items-center bg-slate-50">
         <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Currículos Recebidos</span>
         <div class="flex gap-2">
-          <button onclick="carregarCurriculos()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg">
+          <button onclick="carregarCurriculos()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg shadow-2xs">
             🔄 Atualizar
           </button>
-          <button onclick="exportarCSV()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg">
+          <button onclick="exportarCSV()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg shadow-2xs">
             Exportar CSV
           </button>
         </div>
@@ -202,11 +202,12 @@
           <thead class="bg-slate-100 text-slate-600 font-semibold border-b">
             <tr>
               <th class="p-3">Data</th>
-              <th class="p-3">Candidato</th>
+              <th class="p-3">Nome do Candidato</th>
+              <th class="p-3">Idade</th>
               <th class="p-3">Cargo</th>
               <th class="p-3">Telefone</th>
-              <th class="p-3">Endereço</th>
-              <th class="p-3 text-right">Ação</th>
+              <th class="p-3">Endereço / Cidade</th>
+              <th class="p-3 text-center">Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaCurriculos" class="divide-y divide-slate-100"></tbody>
@@ -220,25 +221,29 @@
     <p>© 2026 Infralink Engenharia de Manutenção. Todos os direitos reservados.</p>
   </footer>
 
-  <!-- MODAL DE SENHA -->
+  <!-- MODAL DE SENHA DO RECRUTADOR (SEM DICA DE SENHA) -->
   <div id="modalSenha" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
       <h3 class="text-base font-bold text-slate-900 font-display mb-1">Acesso Restrito ao Recrutador</h3>
       <p class="text-xs text-slate-500 mb-4">Infralink Engenharia de Manutenção</p>
-      <input type="password" id="inputSenha" placeholder="Digite a senha de acesso" class="w-full p-2.5 text-sm border rounded-xl mb-3">
+      
+      <!-- CAMPO SEM QUALQUER DICA DE SENHA -->
+      <input type="password" id="inputSenha" placeholder="Digite sua senha de acesso" class="w-full p-2.5 text-sm border rounded-xl mb-3 focus:ring-2 focus:ring-slate-900">
+      
       <p id="msgErroSenha" class="text-xs text-rose-600 hidden mb-2 font-medium">Senha incorreta!</p>
       <div class="flex gap-2">
-        <button onclick="fecharModalSenha()" class="flex-1 py-2 text-xs bg-slate-100 rounded-xl">Cancelar</button>
-        <button onclick="validarSenha()" class="flex-1 py-2 text-xs bg-[#0a2540] text-white font-bold rounded-xl">Entrar</button>
+        <button onclick="fecharModalSenha()" class="flex-1 py-2 text-xs bg-slate-100 hover:bg-slate-200 rounded-xl font-medium">Cancelar</button>
+        <button onclick="validarSenha()" class="flex-1 py-2 text-xs bg-[#0a2540] hover:bg-slate-800 text-white font-bold rounded-xl">Entrar</button>
       </div>
     </div>
   </div>
 
   <script>
-    // CHAVES DO SEU SUPABASE EMBUTIDAS
+    // CONFIGURAÇÃO SUPABASE
     const SUPABASE_URL = 'https://njmqrgrjfunfaizfchhe.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_iXvaaoES9YJUt8zfVDBH8g_GxZpP1eB';
 
+    let listaCandidatosAtual = [];
     let cargoAtual = localStorage.getItem('cargo_infralink') || 'Técnico de Manutenção';
     const params = new URLSearchParams(window.location.search);
     if (params.get('cargo')) cargoAtual = params.get('cargo');
@@ -311,7 +316,7 @@
       }
     }
 
-    function getLista() {
+    function getListaLocal() {
       try {
         return JSON.parse(localStorage.getItem('candidatos_infralink') || '[]');
       } catch(e) { return []; }
@@ -327,7 +332,7 @@
         });
         if (res.ok) {
           const data = await res.json();
-          const formatados = data.map(item => ({
+          listaCandidatosAtual = data.map(item => ({
             id: item.id,
             data: new Date(item.data_cadastro).toLocaleDateString('pt-BR') + ' às ' + new Date(item.data_cadastro).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
             cargo: item.cargo,
@@ -343,13 +348,43 @@
             experiencia: typeof item.experiencias === 'string' ? item.experiencias : (Array.isArray(item.experiencias) ? item.experiencias.map(e => `${e.empresa || e.descricao || ''} (${e.cargo || ''})`).join('; ') : ''),
             cursos: typeof item.cursos === 'string' ? item.cursos : (Array.isArray(item.cursos) ? item.cursos.map(c => `${c.nome || ''}`).join('; ') : '')
           }));
-          renderizarTabela(formatados);
+          renderizarTabela(listaCandidatosAtual);
           return;
         }
       } catch(err) {
         console.error('Erro ao buscar do Supabase:', err);
       }
-      renderizarTabela(getLista());
+      listaCandidatosAtual = getListaLocal();
+      renderizarTabela(listaCandidatosAtual);
+    }
+
+    // EXCLUIR CADASTRO INDIVIDUAL (LIXEIRA)
+    async function excluirCandidato(id, nome) {
+      if (!confirm(`Tem certeza que deseja enviar o currículo de "${nome}" para a lixeira?`)) {
+        return;
+      }
+
+      // Tenta apagar no Supabase
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/candidaturas?id=eq.${id}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
+          }
+        });
+      } catch(err) {
+        console.error('Erro ao excluir no Supabase:', err);
+      }
+
+      // Remove do cache local
+      let local = getListaLocal();
+      local = local.filter(c => c.id != id);
+      localStorage.setItem('candidatos_infralink', JSON.stringify(local));
+
+      // Remove da visualização em tela
+      listaCandidatosAtual = listaCandidatosAtual.filter(c => c.id != id);
+      renderizarTabela(listaCandidatosAtual);
     }
 
     async function enviarCandidatura(e) {
@@ -373,7 +408,6 @@
         cursos: document.getElementById('campoCursos').value
       };
 
-      // ENVIO DIRETO PARA O BANCO DE DADOS SUPABASE
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/candidaturas`, {
           method: 'POST',
@@ -407,8 +441,7 @@
         console.error('Erro ao enviar para o Supabase:', err);
       }
 
-      // Salva no navegador como contingência
-      const lista = getLista();
+      const lista = getListaLocal();
       lista.unshift(cand);
       localStorage.setItem('candidatos_infralink', JSON.stringify(lista));
 
@@ -416,22 +449,31 @@
       document.getElementById('candidateForm').reset();
     }
 
-    function renderizarTabela(lista) {
-      const dados = lista || getLista();
+    function renderizarTabela(dados) {
       const tbody = document.getElementById('tabelaCurriculos');
       if (!dados || dados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum currículo recebido ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum currículo recebido ainda.</td></tr>';
         return;
       }
       tbody.innerHTML = dados.map(c => `
-        <tr class="hover:bg-slate-50">
-          <td class="p-3 font-mono">${c.data}</td>
-          <td class="p-3 font-bold">${c.nome} (${c.idade}a)</td>
-          <td class="p-3"><span class="bg-blue-100 text-blue-900 px-2 py-0.5 rounded text-[11px] font-semibold">${c.cargo}</span></td>
-          <td class="p-3">${c.tel}</td>
-          <td class="p-3">${c.endereco}</td>
-          <td class="p-3 text-right">
-            <button onclick='gerarPDF(${JSON.stringify(c)})' class="px-2.5 py-1 bg-[#0a2540] text-white text-[11px] rounded font-semibold hover:bg-slate-800">PDF</button>
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="p-3 font-mono text-[11px] text-slate-500">${c.data}</td>
+          <td class="p-3 font-bold text-slate-900">${c.nome}</td>
+          <td class="p-3 text-slate-600">${c.idade ? c.idade + ' anos' : '-'}</td>
+          <td class="p-3"><span class="bg-blue-100 text-[#0a2540] px-2 py-0.5 rounded text-[11px] font-semibold">${c.cargo}</span></td>
+          <td class="p-3 font-medium">${c.tel}</td>
+          <td class="p-3 text-slate-600">${c.endereco}</td>
+          <td class="p-3 text-center">
+            <div class="flex items-center justify-center gap-1.5">
+              <button onclick='gerarPDF(${JSON.stringify(c)})' title="Baixar PDF do Currículo" class="px-2.5 py-1 bg-[#0a2540] text-white text-[11px] rounded font-semibold hover:bg-slate-800 transition-colors">
+                PDF
+              </button>
+              <button onclick='excluirCandidato("${c.id}", "${c.nome.replace(/"/g, '')}")' title="Enviar para Lixeira" class="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           </td>
         </tr>
       `).join('');
@@ -453,7 +495,7 @@
 
       doc.setTextColor(20, 20, 20);
       doc.setFontSize(11);
-      doc.text(`Nome Completo: ${c.nome} | Idade: ${c.idade} anos`, 15, 36);
+      doc.text(`Nome Completo: ${c.nome} | Idade: ${c.idade ? c.idade + ' anos' : 'Não informada'}`, 15, 36);
       doc.text(`Telefone: ${c.tel} | E-mail: ${c.email}`, 15, 43);
       doc.text(`CPF: ${c.cpf || 'Não inf.'} | RG: ${c.rg || 'Não inf.'}`, 15, 50);
       doc.text(`Endereço: ${c.endereco}`, 15, 57);
@@ -470,7 +512,7 @@
     }
 
     function exportarCSV() {
-      const lista = getLista();
+      const lista = listaCandidatosAtual.length > 0 ? listaCandidatosAtual : getListaLocal();
       let csv = 'Data;Nome;Idade;Cargo;Telefone;Email;Endereco;Escolaridade\n';
       lista.forEach(c => {
         csv += `"${c.data}";"${c.nome}";"${c.idade}";"${c.cargo}";"${c.tel}";"${c.email}";"${c.endereco}";"${c.escolaridade}"\n`;
