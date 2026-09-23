@@ -102,8 +102,8 @@
           <input type="text" id="campoTel" required placeholder="(11) 99999-9999" class="w-full px-3.5 py-2 text-sm border rounded-xl">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">E-mail *</label>
-          <input type="email" id="campoEmail" required placeholder="email@exemplo.com" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">E-mail <span class="text-slate-400 font-normal">(Opcional)</span></label>
+          <input type="email" id="campoEmail" placeholder="email@exemplo.com (opcional)" class="w-full px-3.5 py-2 text-sm border rounded-xl">
         </div>
       </div>
 
@@ -136,11 +136,15 @@
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">Nível de Escolaridade</label>
           <select id="campoEscolaridade" class="w-full px-3.5 py-2 text-sm border rounded-xl bg-white">
-            <option value="Ensino Médio Completo">Ensino Médio Completo</option>
+            <option value="Ensino Fundamental Incompleto">Ensino Fundamental Incompleto</option>
             <option value="Ensino Fundamental Completo">Ensino Fundamental Completo</option>
+            <option value="Ensino Médio Incompleto">Ensino Médio Incompleto</option>
+            <option value="Ensino Médio Completo" selected>Ensino Médio Completo</option>
             <option value="Ensino Técnico">Ensino Técnico</option>
+            <option value="Superior Incompleto">Superior Incompleto</option>
             <option value="Superior Cursando">Superior Cursando</option>
             <option value="Superior Completo">Superior Completo</option>
+            <option value="Pós-graduação">Pós-graduação</option>
           </select>
         </div>
         <div>
@@ -253,7 +257,6 @@
 
     // 1. CARREGAR VAGA SINCRONIZADA DA NUVEM (SUPABASE)
     async function sincronizarCargoNuvem() {
-      // Prioridade 1: parâmetro da URL se houver ?cargo=...
       const params = new URLSearchParams(window.location.search);
       if (params.get('cargo')) {
         cargoAtual = decodeURIComponent(params.get('cargo'));
@@ -261,7 +264,6 @@
         return;
       }
 
-      // Prioridade 2: Buscar da nuvem no Supabase
       try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/configuracoes?chave=eq.cargo_ativo&select=valor`, {
           headers: {
@@ -282,7 +284,6 @@
         console.error('Erro ao ler cargo da nuvem:', e);
       }
 
-      // Fallback local se estiver offline
       cargoAtual = localStorage.getItem('cargo_infralink') || 'Técnico de Manutenção';
       document.getElementById('displayCargo').innerText = cargoAtual;
     }
@@ -296,7 +297,6 @@
         document.getElementById('displayCargo').innerText = cargoAtual;
         localStorage.setItem('cargo_infralink', cargoAtual);
 
-        // Salva no Supabase para sincronizar em todos os celulares
         try {
           await fetch(`${SUPABASE_URL}/rest/v1/configuracoes`, {
             method: 'POST',
@@ -416,7 +416,7 @@
             cpf: item.cpf || '',
             rg: item.rg || '',
             tel: item.telefone,
-            email: item.email,
+            email: item.email || '',
             endereco: (item.logradouro || '') + ' ' + (item.numero || '') + ' - ' + (item.cidade || '') + '/' + (item.estado || ''),
             escolaridade: item.escolaridade || '',
             experiencia: typeof item.experiencias === 'string' ? item.experiencias : (Array.isArray(item.experiencias) ? item.experiencias.map(e => `${e.empresa || e.descricao || ''} (${e.cargo || ''})`).join('; ') : ''),
@@ -472,7 +472,7 @@
         cpf: document.getElementById('campoCpf').value,
         rg: document.getElementById('campoRg').value,
         tel: document.getElementById('campoTel').value,
-        email: document.getElementById('campoEmail').value,
+        email: document.getElementById('campoEmail').value || '',
         endereco: document.getElementById('campoRua').value + ' - ' + document.getElementById('campoCidade').value + '/' + document.getElementById('campoUf').value,
         escolaridade: document.getElementById('campoEscolaridade').value,
         experiencia: document.getElementById('campoExp').value,
@@ -496,7 +496,7 @@
             cpf: cand.cpf || null,
             rg: cand.rg || null,
             telefone: cand.tel,
-            email: cand.email,
+            email: cand.email || null,
             cep: document.getElementById('campoCep').value || null,
             logradouro: document.getElementById('campoRua').value || null,
             bairro: document.getElementById('campoBairro').value || null,
@@ -567,7 +567,7 @@
       doc.setTextColor(20, 20, 20);
       doc.setFontSize(11);
       doc.text(`Nome Completo: ${c.nome} | Idade: ${c.idade ? c.idade + ' anos' : 'Não informada'}`, 15, 36);
-      doc.text(`Telefone: ${c.tel} | E-mail: ${c.email}`, 15, 43);
+      doc.text(`Telefone: ${c.tel} | E-mail: ${c.email || 'Não informado'}`, 15, 43);
       doc.text(`CPF: ${c.cpf || 'Não inf.'} | RG: ${c.rg || 'Não inf.'}`, 15, 50);
       doc.text(`Endereço: ${c.endereco}`, 15, 57);
       doc.text(`Escolaridade: ${c.escolaridade}`, 15, 64);
@@ -586,7 +586,7 @@
       const lista = listaCandidatosAtual.length > 0 ? listaCandidatosAtual : getListaLocal();
       let csv = 'Data;Nome;Idade;Cargo;Telefone;Email;Endereco;Escolaridade\n';
       lista.forEach(c => {
-        csv += `"${c.data}";"${c.nome}";"${c.idade}";"${c.cargo}";"${c.tel}";"${c.email}";"${c.endereco}";"${c.escolaridade}"\n`;
+        csv += `"${c.data}";"${c.nome}";"${c.idade}";"${c.cargo}";"${c.tel}";"${c.email || ''}";"${c.endereco}";"${c.escolaridade}"\n`;
       });
       const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
       const a = document.createElement('a');
