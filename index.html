@@ -1,1031 +1,544 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Users, 
-  Briefcase, 
-  Database, 
-  Search, 
-  Filter, 
-  Download, 
-  Printer, 
-  Eye, 
-  Trash2, 
-  Plus, 
-  Check, 
-  Copy, 
-  ExternalLink, 
-  ShieldCheck, 
-  FileText, 
-  FileSpreadsheet, 
-  Phone, 
-  Clock, 
-  Layers, 
-  CheckCircle2, 
-  AlertTriangle,
-  Code,
-  Globe,
-  Settings
-} from 'lucide-react';
-import { Candidatura, VagaConfig, StatusCandidatura, SupabaseConfig } from '../types';
-import { StorageService } from '../services/storage';
-import { PDFService } from '../services/pdfGenerator';
-import { CandidateDetailModal } from './CandidateDetailModal';
-import { downloadStandaloneHtml } from '../utils/downloadHtml';
-
-interface RecruiterDashboardProps {
-  onBackToPublicForm: () => void;
-  onActiveVagaChanged?: (vaga: VagaConfig) => void;
-}
-
-export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
-  onBackToPublicForm,
-  onActiveVagaChanged,
-}) => {
-  const [activeTab, setActiveTab] = useState<'curriculos' | 'vagas' | 'database'>('curriculos');
-
-  // Estados de Candidaturas
-  const [candidaturas, setCandidaturas] = useState<Candidatura[]>(() => StorageService.getCandidaturas());
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filtroCargo, setFiltroCargo] = useState('todos');
-  const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [selectedCandidato, setSelectedCandidato] = useState<Candidatura | null>(null);
-
-  // Estados de Vagas
-  const [vagas, setVagas] = useState<VagaConfig[]>(() => StorageService.getVagas());
-  const [showNovaVagaModal, setShowNovaVagaModal] = useState(false);
-  const [novaVagaTitulo, setNovaVagaTitulo] = useState('');
-  const [novaVagaDepartamento, setNovaVagaDepartamento] = useState('Operacional');
-  const [novaVagaContrato, setNovaVagaContrato] = useState('CLT');
-  const [novaVagaDescricao, setNovaVagaDescricao] = useState('');
-  const [novaVagaRequisitos, setNovaVagaRequisitos] = useState('');
-  const [copiedLinkVagaId, setCopiedLinkVagaId] = useState<string | null>(null);
-
-  // Estados de Supabase
-  const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(() => StorageService.getSupabaseConfig());
-  const [supabaseUrlInput, setSupabaseUrlInput] = useState(supabaseConfig.url);
-  const [supabaseKeyInput, setSupabaseKeyInput] = useState(supabaseConfig.anonKey);
-  const [supabaseSyncEnabled, setSupabaseSyncEnabled] = useState(supabaseConfig.syncEnabled);
-  const [supabaseSaveFeedback, setSupabaseSaveFeedback] = useState(false);
-  const [copiedSql, setCopiedSql] = useState(false);
-
-  // Recarrega lista
-  const refreshCandidaturas = () => {
-    setCandidaturas(StorageService.getCandidaturas());
-  };
-
-  const refreshVagas = () => {
-    const updated = StorageService.getVagas();
-    setVagas(updated);
-    const active = StorageService.getVagaAtivaPadrao();
-    if (onActiveVagaChanged) onActiveVagaChanged(active);
-  };
-
-  // Exclusão
-  const handleDeleteCandidatura = (id: string, nome: string) => {
-    if (window.confirm(`Tem certeza que deseja remover o currículo de "${nome}"?`)) {
-      const updated = StorageService.excluirCandidatura(id);
-      setCandidaturas(updated);
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Vagas e Ficha de Candidatura - Infralink Engenharia de Manutenção</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Cabinet+Grotesk:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    h1, h2, h3, .font-display { font-family: 'Cabinet Grotesk', sans-serif; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; font-size: 11pt !important; }
+      .print-only { display: block !important; }
     }
-  };
-
-  // Status update
-  const handleQuickStatusChange = (id: string, newStatus: StatusCandidatura) => {
-    const updated = StorageService.atualizarCandidatura(id, { status: newStatus });
-    setCandidaturas(updated);
-  };
-
-  // Definir Vaga Padrão da Ficha
-  const handleSetVagaPadrao = (vagaId: string) => {
-    const updated = StorageService.definirVagaPadrao(vagaId);
-    setVagas(updated);
-    const active = updated.find(v => v.id === vagaId);
-    if (active && onActiveVagaChanged) onActiveVagaChanged(active);
-  };
-
-  // Criação de Nova Vaga
-  const handleCriarVaga = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!novaVagaTitulo.trim()) return;
-
-    StorageService.adicionarVaga({
-      titulo: novaVagaTitulo.trim(),
-      departamento: novaVagaDepartamento.trim(),
-      tipoContrato: novaVagaContrato,
-      descricao: novaVagaDescricao.trim(),
-      requisitos: novaVagaRequisitos.trim(),
-      ativa: true,
-      padrao: vagas.length === 0,
-    });
-
-    setNovaVagaTitulo('');
-    setNovaVagaDescricao('');
-    setNovaVagaRequisitos('');
-    setShowNovaVagaModal(false);
-    refreshVagas();
-  };
-
-  // Copiar link com cargo para o candidato
-  const handleCopyLinkVaga = (vaga: VagaConfig) => {
-    const origin = window.location.origin + window.location.pathname;
-    const directUrl = `${origin}?cargo=${encodeURIComponent(vaga.titulo)}`;
-    navigator.clipboard.writeText(directUrl);
-    setCopiedLinkVagaId(vaga.id);
-    setTimeout(() => setCopiedLinkVagaId(null), 2500);
-  };
-
-  // Salvar config do Supabase
-  const handleSalvarSupabase = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newConfig: SupabaseConfig = {
-      url: supabaseUrlInput.trim(),
-      anonKey: supabaseKeyInput.trim(),
-      syncEnabled: supabaseSyncEnabled,
-      lastSync: new Date().toISOString(),
-    };
-    StorageService.salvarSupabaseConfig(newConfig);
-    setSupabaseConfig(newConfig);
-    setSupabaseSaveFeedback(true);
-    setTimeout(() => setSupabaseSaveFeedback(false), 2500);
-  };
-
-  // Exportar para CSV
-  const handleExportCSV = () => {
-    const headers = [
-      'ID',
-      'Data Cadastro',
-      'Cargo Pretendido',
-      'Nome Completo',
-      'Idade',
-      'Data Nascimento',
-      'CPF',
-      'Telefone',
-      'Email',
-      'Cidade',
-      'Estado',
-      'Escolaridade',
-      'Status',
-      'Notas Recrutador'
-    ];
-
-    const rows = candidaturas.map(c => [
-      `"${c.id}"`,
-      `"${c.dataCadastroFormatada || c.dataCadastro}"`,
-      `"${c.cargo.replace(/"/g, '""')}"`,
-      `"${c.nomeCompleto.replace(/"/g, '""')}"`,
-      c.idade,
-      `"${c.dataNascimento || ''}"`,
-      `"${c.cpf || ''}"`,
-      `"${c.telefone}"`,
-      `"${c.email}"`,
-      `"${c.endereco.cidade}"`,
-      `"${c.endereco.estado}"`,
-      `"${c.escolaridade.nivel}"`,
-      `"${c.status}"`,
-      `"${(c.notasRecrutador || '').replace(/"/g, '""')}"`
-    ]);
-
-    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Candidaturas_Grupo_Brasa_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Exportar para JSON
-  const handleExportJSON = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(candidaturas, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `Backup_Candidaturas_${new Date().toISOString().slice(0, 10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
-  // Script SQL completo para o Supabase
-  const sqlScript = `-- TABELA DE CANDIDATURAS PARA CLOUDFLARE PAGES / SUPABASE
--- Execute este script no SQL Editor do seu projeto Supabase:
-
-CREATE TABLE IF NOT EXISTS public.candidaturas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  cargo TEXT NOT NULL,
-  nome_completo TEXT NOT NULL,
-  idade INTEGER,
-  data_nascimento TEXT,
-  cpf TEXT,
-  rg TEXT,
-  telefone TEXT NOT NULL,
-  email TEXT NOT NULL,
-  estado_civil TEXT,
-  cnh TEXT,
-  cep TEXT,
-  logradouro TEXT,
-  numero TEXT,
-  bairro TEXT,
-  cidade TEXT,
-  estado TEXT,
-  escolaridade TEXT,
-  instituicao TEXT,
-  curso_formacao TEXT,
-  situacao_escolaridade TEXT,
-  experiencias JSONB DEFAULT '[]'::jsonb,
-  cursos JSONB DEFAULT '[]'::jsonb,
-  disponibilidade_horario TEXT,
-  disponibilidade_inicio TEXT,
-  apresentacao TEXT,
-  status TEXT DEFAULT 'Novo',
-  notas_recrutador TEXT,
-  data_cadastro TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- Ativar Row Level Security (RLS)
-ALTER TABLE public.candidaturas ENABLE ROW LEVEL SECURITY;
-
--- Política 1: Permitir inserção pública anônima pela Ficha do Candidato
-CREATE POLICY "Permitir envio público de currículo"
-ON public.candidaturas
-FOR INSERT
-TO anon, authenticated
-WITH CHECK (true);
-
--- Política 2: Permitir leitura e gestão
-CREATE POLICY "Permitir consulta de candidaturas"
-ON public.candidaturas
-FOR SELECT
-TO anon, authenticated
-USING (true);
-
--- Índices de busca rápida
-CREATE INDEX IF NOT EXISTS idx_candidaturas_cargo ON public.candidaturas(cargo);
-CREATE INDEX IF NOT EXISTS idx_candidaturas_data ON public.candidaturas(data_cadastro DESC);
-`;
-
-  const handleCopySql = () => {
-    navigator.clipboard.writeText(sqlScript);
-    setCopiedSql(true);
-    setTimeout(() => setCopiedSql(false), 2000);
-  };
-
-  // Filtragem de Candidaturas
-  const filteredCandidaturas = useMemo(() => {
-    return candidaturas.filter(c => {
-      const matchSearch = searchTerm === '' || 
-        c.nomeCompleto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.cargo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.endereco.cidade.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.telefone.includes(searchTerm);
-
-      const matchCargo = filtroCargo === 'todos' || c.cargo === filtroCargo;
-      const matchStatus = filtroStatus === 'todos' || c.status === filtroStatus;
-
-      return matchSearch && matchCargo && matchStatus;
-    });
-  }, [candidaturas, searchTerm, filtroCargo, filtroStatus]);
-
-  // Lista única de cargos existentes para o filtro
-  const listaCargos = useMemo(() => {
-    const set = new Set<string>();
-    vagas.forEach(v => set.add(v.titulo));
-    candidaturas.forEach(c => set.add(c.cargo));
-    return Array.from(set);
-  }, [vagas, candidaturas]);
-
-  // Métricas
-  const totalCandidatos = candidaturas.length;
-  const totalNovos = candidaturas.filter(c => c.status === 'Novo').length;
-  const totalEmAnalise = candidaturas.filter(c => c.status === 'Em Análise').length;
-  const totalEntrevista = candidaturas.filter(c => c.status === 'Entrevista').length;
-  const totalAprovados = candidaturas.filter(c => c.status === 'Aprovado').length;
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 no-print">
-      
-      {/* Top Banner do Painel Administrativo */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+  </style>
+<script src="/_aistudio-iframe.js?v=2c34bde1"></script></head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between">
+  
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 no-print">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- Logo Infralink -->
+        <div class="w-10 h-10 rounded-xl bg-[#0a2540] flex items-center justify-center shadow-xs border border-blue-900/30">
+          <svg class="w-6 h-6 text-[#ff6b00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#0a2540] uppercase tracking-wider">
-              Painel do Recrutador · Infralink Engenharia de Manutenção
-            </span>
-            <span className="text-slate-300">·</span>
-            <span className="text-xs text-slate-500">Acesso Administrativo</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 font-display mt-0.5">
-            Gestão de Recrutamento & Seleção
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Visualize os currículos sincronizados no Supabase, altere a função ativa da ficha e emita PDFs.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => downloadStandaloneHtml()}
-            className="px-3.5 py-2 bg-[#0a2540] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 shadow-xs"
-            title="Baixar arquivo HTML único completo para rodar ou hospedar no GitHub/Cloudflare Pages"
-          >
-            <Download className="w-4 h-4 text-[#ff6b00]" />
-            <span>Baixar index.html (Nuvem Supabase)</span>
-          </button>
-
-          <button
-            onClick={onBackToPublicForm}
-            className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition-colors flex items-center gap-2"
-          >
-            <Eye className="w-4 h-4 text-[#0a2540]" />
-            <span>Voltar para Ficha</span>
-          </button>
+          <span class="text-xl font-black block font-display leading-tight tracking-tight">
+            <span class="text-[#0a2540]">Infra</span><span class="text-[#ff6b00]">link</span>
+          </span>
+          <span class="text-[11px] text-slate-600 font-bold uppercase tracking-wider block">Engenharia de Manutenção</span>
         </div>
       </div>
-
-      {/* Navegação por Abas do Painel */}
-      <div className="flex items-center gap-2 border-b border-slate-200 mb-6 overflow-x-auto pb-px">
-        <button
-          onClick={() => setActiveTab('curriculos')}
-          className={`px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'curriculos'
-              ? 'border-amber-600 text-amber-700'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Currículos Cadastrados ({totalCandidatos})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('vagas')}
-          className={`px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'vagas'
-              ? 'border-amber-600 text-amber-700'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Briefcase className="w-4 h-4" />
-          <span>Gestão de Vagas & Cargos da Ficha</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('database')}
-          className={`px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
-            activeTab === 'database'
-              ? 'border-amber-600 text-amber-700'
-              : 'border-transparent text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>Banco de Dados, Cloudflare & Supabase</span>
+      <div class="flex items-center gap-2">
+        <button id="btnAbrirAdmin" onclick="abrirModalSenha()" class="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg flex items-center gap-1.5 transition-colors">
+          🔒 Área do Recrutador
         </button>
       </div>
-
-      {/* ABA 1: CURRÍCULOS CADASTRADOS */}
-      {activeTab === 'curriculos' && (
-        <div className="space-y-6">
-          
-          {/* Métricas Rápidas */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-            <div className="p-4 bg-white border border-slate-200 rounded-xl">
-              <span className="text-[11px] font-medium text-slate-500 block">Total de Inscritos</span>
-              <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">{totalCandidatos}</span>
-            </div>
-            <div className="p-4 bg-white border border-slate-200 rounded-xl">
-              <span className="text-[11px] font-medium text-amber-700 block">Novos</span>
-              <span className="text-2xl font-bold text-amber-700 font-mono tabular-nums">{totalNovos}</span>
-            </div>
-            <div className="p-4 bg-white border border-slate-200 rounded-xl">
-              <span className="text-[11px] font-medium text-blue-700 block">Em Análise</span>
-              <span className="text-2xl font-bold text-blue-700 font-mono tabular-nums">{totalEmAnalise}</span>
-            </div>
-            <div className="p-4 bg-white border border-slate-200 rounded-xl">
-              <span className="text-[11px] font-medium text-purple-700 block">Entrevista</span>
-              <span className="text-2xl font-bold text-purple-700 font-mono tabular-nums">{totalEntrevista}</span>
-            </div>
-            <div className="p-4 bg-white border border-slate-200 rounded-xl col-span-2 sm:col-span-1">
-              <span className="text-[11px] font-medium text-emerald-700 block">Aprovados</span>
-              <span className="text-2xl font-bold text-emerald-700 font-mono tabular-nums">{totalAprovados}</span>
-            </div>
-          </div>
-
-          {/* Barra de Busca e Filtros */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="flex-1 relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por nome, cargo, cidade ou telefone..."
-                className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                <Filter className="w-3.5 h-3.5" />
-                <span>Cargo:</span>
-              </div>
-              <select
-                value={filtroCargo}
-                onChange={(e) => setFiltroCargo(e.target.value)}
-                className="text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              >
-                <option value="todos">Todos os Cargos</option>
-                {listaCargos.map((cargo, idx) => (
-                  <option key={idx} value={cargo}>{cargo}</option>
-                ))}
-              </select>
-
-              <div className="flex items-center gap-1.5 text-xs text-slate-600 ml-2">
-                <span>Status:</span>
-              </div>
-              <select
-                value={filtroStatus}
-                onChange={(e) => setFiltroStatus(e.target.value)}
-                className="text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              >
-                <option value="todos">Todos os Status</option>
-                <option value="Novo">Novo</option>
-                <option value="Em Análise">Em Análise</option>
-                <option value="Entrevista">Entrevista</option>
-                <option value="Aprovado">Aprovado</option>
-                <option value="Banco de Talentos">Banco de Talentos</option>
-                <option value="Descartado">Descartado</option>
-              </select>
-
-              <button
-                onClick={handleExportCSV}
-                title="Exportar planilha formatada em CSV"
-                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ml-auto"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Exportar CSV</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Tabela de Candidaturas */}
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <tr>
-                    <th className="px-4 py-3">Data de Cadastro</th>
-                    <th className="px-4 py-3">Candidato</th>
-                    <th className="px-4 py-3">Cargo Pretendido</th>
-                    <th className="px-4 py-3">Contato & Local</th>
-                    <th className="px-4 py-3">Escolaridade</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Ações (PDF / Ficha)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCandidaturas.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
-                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="font-medium">Nenhum currículo encontrado com os filtros selecionados.</p>
-                        <p className="text-[11px] text-slate-400 mt-1">Experimente limpar os termos de busca ou mudar a função filtrada.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredCandidaturas.map((candidato) => (
-                      <tr 
-                        key={candidato.id} 
-                        className="hover:bg-slate-50/80 transition-colors group"
-                      >
-                        {/* Data de Cadastro */}
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-600">
-                            <Clock className="w-3 h-3 text-amber-600 shrink-0" />
-                            <span>{candidato.dataCadastroFormatada || new Date(candidato.dataCadastro).toLocaleDateString('pt-BR')}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 block pl-4">ID #{candidato.id.slice(-6)}</span>
-                        </td>
-
-                        {/* Candidato */}
-                        <td className="px-4 py-3">
-                          <div className="font-bold text-slate-900 text-sm group-hover:text-amber-700 transition-colors">
-                            {candidato.nomeCompleto}
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            {candidato.idade} anos · {candidato.estadoCivil || 'Não inf.'}
-                          </div>
-                        </td>
-
-                        {/* Cargo Pretendido */}
-                        <td className="px-4 py-3">
-                          <span className="font-semibold text-slate-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-md inline-block text-[11px]">
-                            {candidato.cargo}
-                          </span>
-                        </td>
-
-                        {/* Contato & Local */}
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-slate-800 font-medium">{candidato.telefone}</div>
-                          <div className="text-[11px] text-slate-500">{candidato.endereco.cidade} - {candidato.endereco.estado}</div>
-                        </td>
-
-                        {/* Escolaridade */}
-                        <td className="px-4 py-3">
-                          <div className="truncate max-w-[150px] text-slate-800 font-medium">
-                            {candidato.escolaridade.nivel}
-                          </div>
-                          <div className="text-[11px] text-slate-500">
-                            {candidato.semExperiencia ? 'Primeiro Emprego' : `${candidato.experiencias?.length || 0} exp. registradas`}
-                          </div>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <select
-                            value={candidato.status}
-                            onChange={(e) => handleQuickStatusChange(candidato.id, e.target.value as StatusCandidatura)}
-                            className="text-xs font-semibold py-1 px-2 rounded-lg border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          >
-                            <option value="Novo">Novo</option>
-                            <option value="Em Análise">Em Análise</option>
-                            <option value="Entrevista">Entrevista</option>
-                            <option value="Aprovado">Aprovado</option>
-                            <option value="Banco de Talentos">Banco de Talentos</option>
-                            <option value="Descartado">Descartado</option>
-                          </select>
-                        </td>
-
-                        {/* Ações */}
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => setSelectedCandidato(candidato)}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                              title="Visualizar currículo completo"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Ver Ficha</span>
-                            </button>
-
-                            <button
-                              onClick={() => PDFService.downloadPDF(candidato)}
-                              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                              title="Salvar currículo em arquivo PDF"
-                            >
-                              <Download className="w-3.5 h-3.5 text-amber-400" />
-                              <span className="hidden sm:inline">Salvar PDF</span>
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                setSelectedCandidato(candidato);
-                                setTimeout(() => PDFService.printResume(), 150);
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                              title="Imprimir folha A4"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-
-                            <button
-                              onClick={() => handleDeleteCandidatura(candidato.id, candidato.nomeCompleto)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                              title="Excluir candidatura"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
-              <span>Mostrando {filteredCandidaturas.length} de {candidaturas.length} currículos</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleExportJSON}
-                  className="hover:text-slate-800 transition-colors"
-                >
-                  Backup JSON
-                </button>
-                <span>·</span>
-                <button
-                  onClick={handleExportCSV}
-                  className="hover:text-slate-800 transition-colors"
-                >
-                  Backup CSV
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ABA 2: GESTÃO DE VAGAS & CARGOS (EXCLUSIVO ADMINISTRADOR) */}
-      {activeTab === 'vagas' && (
-        <div className="space-y-6">
-          <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
-                  Controle de Função da Ficha Pública
-                </span>
-                <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded font-semibold">
-                  Apenas Administrador
-                </span>
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 font-display mt-0.5">
-                Definição de Cargo para os Candidatos
-              </h3>
-              <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-                Conforme solicitado, ao abrir novas vagas, somente o administrador pode configurar o cargo da ficha. 
-                Você pode definir a <strong>Vaga Padrão</strong> que abre na página inicial ou <strong>Copiar o Link Direto</strong> para enviar aos candidatos por WhatsApp ou redes sociais já com o cargo fixado e bloqueado!
-              </p>
-            </div>
-
-            <button
-              onClick={() => setShowNovaVagaModal(true)}
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-2 shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Cadastrar Novo Cargo</span>
-            </button>
-          </div>
-
-          {/* Modal / Formulário de Nova Vaga */}
-          {showNovaVagaModal && (
-            <div className="p-6 bg-white border border-slate-300 rounded-2xl shadow-md animate-in fade-in duration-200">
-              <h4 className="text-sm font-bold text-slate-900 font-display mb-4">
-                Criar Nova Oportunidade / Cargo para Recrutamento
-              </h4>
-              <form onSubmit={handleCriarVaga} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nome da Função / Cargo <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={novaVagaTitulo}
-                      onChange={(e) => setNovaVagaTitulo(e.target.value)}
-                      placeholder="Ex: Sushiman, Gerente de Salão, Auxiliar de Limpeza..."
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Departamento
-                    </label>
-                    <input
-                      type="text"
-                      value={novaVagaDepartamento}
-                      onChange={(e) => setNovaVagaDepartamento(e.target.value)}
-                      placeholder="Ex: Cozinha, Atendimento, Bar..."
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Tipo de Contrato
-                    </label>
-                    <select
-                      value={novaVagaContrato}
-                      onChange={(e) => setNovaVagaContrato(e.target.value)}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      <option value="CLT">CLT</option>
-                      <option value="CLT Integral">CLT Integral</option>
-                      <option value="Temporário">Temporário</option>
-                      <option value="Estágio">Estágio</option>
-                      <option value="PJ">PJ</option>
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Requisitos Mínimos (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={novaVagaRequisitos}
-                      onChange={(e) => setNovaVagaRequisitos(e.target.value)}
-                      placeholder="Ex: Ensino médio, experiência prévia em restaurante..."
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Descrição das Atividades da Vaga
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={novaVagaDescricao}
-                    onChange={(e) => setNovaVagaDescricao(e.target.value)}
-                    placeholder="Descreva resumidamente as atribuições do cargo..."
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowNovaVagaModal(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-xl transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors"
-                  >
-                    Salvar e Ativar Cargo
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Lista de Vagas Cadastradas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {vagas.map((vaga) => {
-              const totalInscritosVaga = candidaturas.filter(c => c.cargo === vaga.titulo).length;
-              return (
-                <div 
-                  key={vaga.id}
-                  className={`p-5 rounded-2xl border transition-all ${
-                    vaga.padrao 
-                      ? 'bg-amber-50/40 border-amber-300 shadow-xs' 
-                      : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        {vaga.padrao ? (
-                          <span className="text-[10px] font-bold bg-amber-600 text-white px-2 py-0.5 rounded uppercase">
-                            Vaga Padrão Atual da Ficha
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                            {vaga.departamento}
-                          </span>
-                        )}
-                        <span className="text-xs text-slate-400 font-mono">
-                          {totalInscritosVaga} {totalInscritosVaga === 1 ? 'currículo' : 'currículos'}
-                        </span>
-                      </div>
-                      <h4 className="text-lg font-bold text-slate-900 font-display mt-1">
-                        {vaga.titulo}
-                      </h4>
-                      <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                        {vaga.descricao || 'Sem descrição cadastrada.'}
-                      </p>
-                      {vaga.requisitos && (
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          <strong>Requisitos:</strong> {vaga.requisitos}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Barra de Ações para a Vaga */}
-                  <div className="mt-4 pt-3 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {!vaga.padrao && (
-                        <button
-                          onClick={() => handleSetVagaPadrao(vaga.id)}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors"
-                          title="Fazer com que a página inicial pública abra com este cargo"
-                        >
-                          Definir como Padrão da Ficha
-                        </button>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => handleCopyLinkVaga(vaga)}
-                      className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5"
-                      title="Copiar link com este cargo pré-selecionado para enviar a candidatos"
-                    >
-                      {copiedLinkVagaId === vaga.id ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-700">Link Copiado!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copiar Link da Vaga</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ABA 3: BANCO DE DADOS, CLOUDFLARE & SUPABASE */}
-      {activeTab === 'database' && (
-        <div className="space-y-6">
-          
-          {/* Download do Arquivo HTML Único */}
-          <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white rounded-2xl p-6 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase font-bold tracking-wider bg-white/20 px-2 py-0.5 rounded-full text-white">
-                  Arquivo HTML Completo
-                </span>
-                <span className="text-xs text-amber-100">Pronto para uso imediato</span>
-              </div>
-              <h3 className="text-lg font-bold font-display text-white">
-                Baixar Ficha de Candidatura em Arquivo .HTML Único
-              </h3>
-              <p className="text-xs text-amber-100 max-w-2xl leading-relaxed">
-                Arquivo 100% autônomo com Tailwind, ViaCEP, jsPDF, formulário completo, painel do recrutador (senha <code className="bg-white/20 px-1 py-0.5 rounded font-mono font-bold">Brasa@2026</code>) e exportação. Basta clicar duas vezes para abrir no navegador ou subir diretamente no <strong>Cloudflare Pages</strong> ou <strong>GitHub Pages</strong>.
-              </p>
-            </div>
-
-            <button
-              onClick={() => downloadStandaloneHtml()}
-              className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-2 shrink-0 hover:scale-[1.02] active:scale-95"
-            >
-              <Download className="w-4 h-4 text-amber-400" />
-              <span>Baixar Arquivo HTML (.html)</span>
-            </button>
-          </div>
-
-          {/* Instruções de Hospedagem Cloudflare Pages & GitHub */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
-                <Globe className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 font-display">
-                  Hospedagem no GitHub e Cloudflare Pages
-                </h3>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  O Cloudflare Pages e o GitHub Pages são plataformas estáticas de alto desempenho e custo zero.
-                  Como a página roda diretamente no navegador do candidato, o sistema já armazena todos os cadastros no 
-                  <strong> LocalStorage</strong> de forma instantânea e autônoma. 
-                  Para conectar um banco de dados persistente na nuvem multi-dispositivo, utilize o <strong>Supabase</strong> abaixo.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Script SQL para o Supabase */}
-          <div className="bg-slate-900 text-slate-200 rounded-2xl p-6 border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Code className="w-5 h-5 text-amber-400" />
-                <h3 className="text-sm font-bold text-white font-display">
-                  Código SQL para Criação da Tabela no Supabase
-                </h3>
-              </div>
-              <button
-                onClick={handleCopySql}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-              >
-                {copiedSql ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-white" />
-                    <span>Copiado!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copiar SQL</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Cole o script abaixo diretamente no <strong>SQL Editor</strong> do painel do seu projeto no Supabase (gratuito) para criar a tabela com os campos necessários, permissões públicas de inserção (RLS) e índices de busca:
-            </p>
-
-            <pre className="p-4 bg-slate-950 rounded-xl text-[11px] font-mono text-emerald-400 overflow-x-auto border border-slate-800/80 leading-relaxed max-h-72">
-              {sqlScript}
-            </pre>
-          </div>
-
-          {/* Configuração de Conexão Supabase */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Settings className="w-5 h-5 text-amber-600" />
-                <h3 className="text-sm font-bold text-slate-900 font-display">
-                  Conexão Automática ao Supabase
-                </h3>
-              </div>
-              {supabaseSaveFeedback && (
-                <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Configurações salvas!
-                </span>
-              )}
-            </div>
-
-            <form onSubmit={handleSalvarSupabase} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Supabase Project URL
-                  </label>
-                  <input
-                    type="url"
-                    value={supabaseUrlInput}
-                    onChange={(e) => setSupabaseUrlInput(e.target.value)}
-                    placeholder="https://exemplo-seu-projeto.supabase.co"
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Supabase Anon Public API Key
-                  </label>
-                  <input
-                    type="text"
-                    value={supabaseKeyInput}
-                    onChange={(e) => setSupabaseKeyInput(e.target.value)}
-                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="syncSupabase"
-                  checked={supabaseSyncEnabled}
-                  onChange={(e) => setSupabaseSyncEnabled(e.target.checked)}
-                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
-                />
-                <label htmlFor="syncSupabase" className="text-xs text-slate-700 cursor-pointer font-medium">
-                  Ativar envio automático de cada nova candidatura para o Supabase
-                </label>
-              </div>
-
-              <div className="flex justify-end pt-2">
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
-                >
-                  Salvar Credenciais
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Exportação de Backup Manual */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h4 className="text-sm font-bold text-slate-900 font-display">
-                Backup e Exportação de Segurança
-              </h4>
-              <p className="text-xs text-slate-600 mt-0.5">
-                Faça o download de todos os currículos em formato CSV (para abrir no Excel ou Google Planilhas) ou JSON a qualquer momento.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleExportCSV}
-                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span>Planilha Excel (CSV)</span>
-              </button>
-              <button
-                onClick={handleExportJSON}
-                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5"
-              >
-                <Download className="w-4 h-4 text-amber-600" />
-                <span>Arquivo JSON</span>
-              </button>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* Modal de Detalhes do Candidato */}
-      <CandidateDetailModal
-        candidato={selectedCandidato}
-        onClose={() => setSelectedCandidato(null)}
-        onUpdate={(updated) => {
-          setSelectedCandidato(updated);
-          refreshCandidaturas();
-        }}
-      />
     </div>
-  );
-};
+  </header>
+
+  <!-- VIEW: FORMULÁRIO DO CANDIDATO -->
+  <main id="viewForm" class="max-w-4xl mx-auto px-4 py-8 flex-1 w-full">
+    <div class="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-bold text-[#0a2540] uppercase tracking-wider">Vaga Selecionada para esta Ficha</span>
+          <span class="text-[10px] bg-orange-100 text-[#ea580c] px-2 py-0.5 rounded font-bold">🔒 Definida pelo Recrutador</span>
+        </div>
+        <h2 id="displayCargo" class="text-xl font-bold text-slate-900 font-display mt-0.5">Técnico de Manutenção</h2>
+        <p class="text-xs text-slate-600">Somente a administração da Infralink pode definir ou alterar o cargo desta ficha.</p>
+      </div>
+      <button onclick="abrirModalSenha()" class="text-xs font-semibold text-[#0a2540] bg-white hover:bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-lg whitespace-nowrap shadow-xs">Alterar Cargo (Admin)</button>
+    </div>
+
+    <form id="candidateForm" onsubmit="enviarCandidatura(event)" class="space-y-6 bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+      <h3 class="text-base font-bold text-slate-900 pb-2 border-b border-slate-200 font-display">1. Dados Pessoais</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
+          <input type="text" id="campoNome" required placeholder="Ex: Carlos Eduardo de Oliveira" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Data de Nascimento</label>
+          <input type="date" id="campoNasc" onchange="calcularIdade(this.value)" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Idade *</label>
+          <input type="number" id="campoIdade" required min="14" max="99" placeholder="Ex: 28" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">CPF</label>
+          <input type="text" id="campoCpf" placeholder="000.000.000-00" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">RG</label>
+          <input type="text" id="campoRg" placeholder="RG / Órgão Emissor" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Telefone / WhatsApp *</label>
+          <input type="text" id="campoTel" required placeholder="(11) 99999-9999" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">E-mail *</label>
+          <input type="email" id="campoEmail" required placeholder="email@exemplo.com" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+      </div>
+
+      <h3 class="text-base font-bold text-slate-900 pb-2 border-b border-slate-200 font-display pt-4">2. Endereço</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">CEP</label>
+          <input type="text" id="campoCep" onblur="buscarCep(this.value)" placeholder="00000-000" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Logradouro / Rua e Número</label>
+          <input type="text" id="campoRua" placeholder="Rua..." class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Bairro</label>
+          <input type="text" id="campoBairro" placeholder="Bairro" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Cidade *</label>
+          <input type="text" id="campoCidade" required placeholder="Cidade" value="São Paulo" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Estado (UF)</label>
+          <input type="text" id="campoUf" placeholder="SP" value="SP" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+      </div>
+
+      <h3 class="text-base font-bold text-slate-900 pb-2 border-b border-slate-200 font-display pt-4">3. Escolaridade & Formação</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nível de Escolaridade</label>
+          <select id="campoEscolaridade" class="w-full px-3.5 py-2 text-sm border rounded-xl bg-white">
+            <option value="Ensino Médio Completo">Ensino Médio Completo</option>
+            <option value="Ensino Fundamental Completo">Ensino Fundamental Completo</option>
+            <option value="Ensino Técnico">Ensino Técnico</option>
+            <option value="Superior Cursando">Superior Cursando</option>
+            <option value="Superior Completo">Superior Completo</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Instituição / Curso</label>
+          <input type="text" id="campoInst" placeholder="Nome da instituição ou curso" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+        </div>
+      </div>
+
+      <h3 class="text-base font-bold text-slate-900 pb-2 border-b border-slate-200 font-display pt-4">4. Experiência & Cursos</h3>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Experiência Profissional (Empresas, Cargos e Períodos)</label>
+        <textarea id="campoExp" rows="3" placeholder="Ex: Empresa ABC - Oficial de Manutenção (2022 a 2024) - Manutenção preventiva e corretiva..." class="w-full px-3.5 py-2 text-sm border rounded-xl"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Cursos e Certificações (NR-10, NR-35, Elétrica, etc.)</label>
+        <textarea id="campoCursos" rows="2" placeholder="Ex: NR-10 (40h), NR-35, Comandos Elétricos (SENAI)..." class="w-full px-3.5 py-2 text-sm border rounded-xl"></textarea>
+      </div>
+
+      <button type="submit" class="w-full py-4 bg-[#0a2540] hover:bg-slate-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-base">
+        <span>Enviar Minha Ficha de Candidatura</span>
+        <svg class="w-5 h-5 text-[#ff6b00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+      </button>
+    </form>
+  </main>
+
+  <!-- VIEW: PAINEL DO RECRUTADOR -->
+  <main id="viewAdmin" class="hidden max-w-7xl mx-auto px-4 py-8 flex-1 w-full">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div>
+        <h2 class="text-2xl font-bold font-display text-slate-900">Painel do Recrutador - Infralink</h2>
+        <p class="text-xs text-slate-500">Gestão de currículos sincronizados com o banco de dados Supabase em tempo real</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="mostrarView('form')" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1">
+          ← Voltar para Ficha
+        </button>
+        <button onclick="definirNovoCargo()" class="px-3.5 py-2 bg-[#0a2540] hover:bg-slate-800 text-white rounded-lg text-xs font-bold">
+          Definir Cargo da Vaga
+        </button>
+        <button onclick="logoutAdmin()" class="px-3 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold hover:bg-rose-100">
+          Sair
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabela de Candidaturas -->
+    <div class="bg-white border rounded-xl overflow-hidden shadow-xs mb-8">
+      <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Currículos Recebidos</span>
+        <div class="flex gap-2">
+          <button onclick="carregarCurriculos()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg flex items-center gap-1">
+            🔄 Atualizar
+          </button>
+          <button onclick="exportarCSV()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg">
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-100 text-slate-600 font-semibold border-b">
+            <tr>
+              <th class="p-3">Data</th>
+              <th class="p-3">Candidato</th>
+              <th class="p-3">Cargo</th>
+              <th class="p-3">Telefone</th>
+              <th class="p-3">Endereço</th>
+              <th class="p-3 text-right">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaCurriculos" class="divide-y divide-slate-100">
+            <!-- Inserido dinamicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Configuração de Conexão Supabase -->
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-sm font-bold text-slate-900 font-display">Conexão com Banco de Dados Nuvem (Supabase)</h3>
+          <p class="text-xs text-slate-500">Credenciais ativas e configuradas para sincronização direta.</p>
+        </div>
+        <span id="badgeSupabaseStatus" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">● Conectado ao Supabase (Nuvem Ativa)</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-700 mb-1">Project URL do Supabase</label>
+          <input type="text" id="cfgSupabaseUrl" class="w-full px-3 py-1.5 text-xs border rounded-lg bg-slate-50">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-700 mb-1">API Publishable / Anon Key</label>
+          <input type="text" id="cfgSupabaseKey" class="w-full px-3 py-1.5 text-xs border rounded-lg bg-slate-50">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <p class="text-[11px] text-slate-500">Projeto: <strong>njmqrgrjfunfaizfchhe</strong> | Região: São Paulo</p>
+        <button onclick="salvarConfigSupabase()" class="px-4 py-2 bg-[#0a2540] hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors">
+          Atualizar Conexão
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="mt-8 border-t border-slate-200 py-6 text-center text-xs text-slate-500 bg-white no-print">
+    <p>© 2026 Infralink Engenharia de Manutenção. Todos os direitos reservados.</p>
+  </footer>
+
+  <!-- Modal de Senha -->
+  <div id="modalSenha" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+      <h3 class="text-base font-bold text-slate-900 font-display mb-1">Acesso Restrito ao Recrutador</h3>
+      <p class="text-xs text-slate-500 mb-4">Digite a senha de recrutador para visualizar currículos ou alterar cargos.</p>
+      <input type="password" id="inputSenha" placeholder="Senha do recrutador" class="w-full p-2.5 text-sm border rounded-xl mb-3">
+      <p id="msgErroSenha" class="text-xs text-rose-600 hidden mb-2 font-medium">Senha incorreta!</p>
+      <div class="flex gap-2">
+        <button onclick="fecharModalSenha()" class="flex-1 py-2 text-xs bg-slate-100 rounded-xl">Cancelar</button>
+        <button onclick="validarSenha()" class="flex-1 py-2 text-xs bg-[#0a2540] text-white font-bold rounded-xl">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configurações Pré-instaladas do Supabase da Infralink
+    let SUPABASE_URL = localStorage.getItem('supabase_url') || 'https://njmqrgrjfunfaizfchhe.supabase.co';
+    let SUPABASE_KEY = localStorage.getItem('supabase_key') || 'sb_publishable_iXvaaoES9YJUt8zfVDBH8g_GxZpP1eB';
+
+    let cargoAtual = localStorage.getItem('cargo_infralink') || 'Técnico de Manutenção';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cargo')) cargoAtual = params.get('cargo');
+    document.getElementById('displayCargo').innerText = cargoAtual;
+
+    function abrirModalSenha() {
+      document.getElementById('modalSenha').classList.remove('hidden');
+      document.getElementById('inputSenha').value = '';
+      document.getElementById('msgErroSenha').classList.add('hidden');
+    }
+    function fecharModalSenha() {
+      document.getElementById('modalSenha').classList.add('hidden');
+    }
+    function validarSenha() {
+      const s = document.getElementById('inputSenha').value;
+      if (s === 'Brasa@2026' || s === 'Infralink@2026') {
+        fecharModalSenha();
+        sessionStorage.setItem('recruiter_auth', 'true');
+        mostrarView('admin');
+        carregarCurriculos();
+      } else {
+        document.getElementById('msgErroSenha').classList.remove('hidden');
+      }
+    }
+    function logoutAdmin() {
+      sessionStorage.removeItem('recruiter_auth');
+      mostrarView('form');
+    }
+    function mostrarView(view) {
+      if (view === 'admin') {
+        document.getElementById('viewForm').classList.add('hidden');
+        document.getElementById('viewAdmin').classList.remove('hidden');
+        document.getElementById('btnAbrirAdmin').classList.add('hidden');
+      } else {
+        document.getElementById('viewForm').classList.remove('hidden');
+        document.getElementById('viewAdmin').classList.add('hidden');
+        document.getElementById('btnAbrirAdmin').classList.remove('hidden');
+      }
+    }
+    function definirNovoCargo() {
+      const novo = prompt('Informe o novo cargo da vaga para a ficha:', cargoAtual);
+      if (novo && novo.trim()) {
+        cargoAtual = novo.trim();
+        localStorage.setItem('cargo_infralink', cargoAtual);
+        document.getElementById('displayCargo').innerText = cargoAtual;
+        alert('Cargo atualizado para: ' + cargoAtual + '\nOs candidatos verão este cargo na ficha.');
+      }
+    }
+    function calcularIdade(dataStr) {
+      if (!dataStr) return;
+      const b = new Date(dataStr);
+      const hoje = new Date();
+      let age = hoje.getFullYear() - b.getFullYear();
+      if (hoje.getMonth() < b.getMonth() || (hoje.getMonth() === b.getMonth() && hoje.getDate() < b.getDate())) age--;
+      if (age >= 14) document.getElementById('campoIdade').value = age;
+    }
+    async function buscarCep(val) {
+      const clean = val.replace(/\D/g, '');
+      if (clean.length === 8) {
+        try {
+          const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+          const d = await res.json();
+          if (!d.erro) {
+            document.getElementById('campoRua').value = d.logradouro || '';
+            document.getElementById('campoBairro').value = d.bairro || '';
+            document.getElementById('campoCidade').value = d.localidade || '';
+            document.getElementById('campoUf').value = d.uf || '';
+          }
+        } catch(e){}
+      }
+    }
+
+    function atualizarStatusSupabase() {
+      const badge = document.getElementById('badgeSupabaseStatus');
+      const inputUrl = document.getElementById('cfgSupabaseUrl');
+      const inputKey = document.getElementById('cfgSupabaseKey');
+      if (inputUrl) inputUrl.value = SUPABASE_URL;
+      if (inputKey) inputKey.value = SUPABASE_KEY;
+      if (badge) {
+        if (SUPABASE_URL && SUPABASE_KEY) {
+          badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800';
+          badge.innerText = '● Conectado ao Supabase (Nuvem Ativa)';
+        } else {
+          badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600';
+          badge.innerText = 'Local (sem nuvem)';
+        }
+      }
+    }
+
+    function salvarConfigSupabase() {
+      const url = document.getElementById('cfgSupabaseUrl').value.trim();
+      const key = document.getElementById('cfgSupabaseKey').value.trim();
+      SUPABASE_URL = url;
+      SUPABASE_KEY = key;
+      localStorage.setItem('supabase_url', url);
+      localStorage.setItem('supabase_key', key);
+      atualizarStatusSupabase();
+      alert('Configuração do Supabase salva com sucesso! Atualizando currículos...');
+      carregarCurriculos();
+    }
+
+    function getLista() {
+      try {
+        return JSON.parse(localStorage.getItem('candidatos_infralink') || '[]');
+      } catch(e) { return []; }
+    }
+
+    async function carregarCurriculos() {
+      atualizarStatusSupabase();
+      if (SUPABASE_URL && SUPABASE_KEY) {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/candidaturas?select=*&order=data_cadastro.desc`, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_KEY
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const formatados = data.map(item => ({
+              id: item.id,
+              data: new Date(item.data_cadastro).toLocaleDateString('pt-BR') + ' às ' + new Date(item.data_cadastro).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+              cargo: item.cargo,
+              nome: item.nome_completo,
+              idade: item.idade || '',
+              nasc: item.data_nascimento || '',
+              cpf: item.cpf || '',
+              rg: item.rg || '',
+              tel: item.telefone,
+              email: item.email,
+              endereco: (item.logradouro || '') + ' ' + (item.numero || '') + ' - ' + (item.cidade || '') + '/' + (item.estado || ''),
+              escolaridade: item.escolaridade || '',
+              experiencia: typeof item.experiencias === 'string' ? item.experiencias : (Array.isArray(item.experiencias) ? item.experiencias.map(e => `${e.empresa || e.descricao || ''} (${e.cargo || ''})`).join('; ') : ''),
+              cursos: typeof item.cursos === 'string' ? item.cursos : (Array.isArray(item.cursos) ? item.cursos.map(c => `${c.nome || ''}`).join('; ') : '')
+            }));
+            renderizarTabela(formatados);
+            return;
+          }
+        } catch(err) {
+          console.error('Erro ao buscar do Supabase:', err);
+        }
+      }
+      renderizarTabela(getLista());
+    }
+
+    async function enviarCandidatura(e) {
+      e.preventDefault();
+      const agora = new Date();
+      const dataStr = agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+      const cand = {
+        id: Date.now(),
+        data: dataStr,
+        cargo: cargoAtual,
+        nome: document.getElementById('campoNome').value,
+        idade: document.getElementById('campoIdade').value,
+        nasc: document.getElementById('campoNasc').value,
+        cpf: document.getElementById('campoCpf').value,
+        rg: document.getElementById('campoRg').value,
+        tel: document.getElementById('campoTel').value,
+        email: document.getElementById('campoEmail').value,
+        endereco: document.getElementById('campoRua').value + ' - ' + document.getElementById('campoCidade').value + '/' + document.getElementById('campoUf').value,
+        escolaridade: document.getElementById('campoEscolaridade').value,
+        experiencia: document.getElementById('campoExp').value,
+        cursos: document.getElementById('campoCursos').value
+      };
+
+      // Se o Supabase estiver configurado, envia para a nuvem
+      let enviadoNuvem = false;
+      if (SUPABASE_URL && SUPABASE_KEY) {
+        try {
+          const resp = await fetch(`${SUPABASE_URL}/rest/v1/candidaturas`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_KEY,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              cargo: cand.cargo,
+              nome_completo: cand.nome,
+              idade: parseInt(cand.idade, 10) || null,
+              data_nascimento: cand.nasc || null,
+              cpf: cand.cpf || null,
+              rg: cand.rg || null,
+              telefone: cand.tel,
+              email: cand.email,
+              cep: document.getElementById('campoCep').value || null,
+              logradouro: document.getElementById('campoRua').value || null,
+              bairro: document.getElementById('campoBairro').value || null,
+              cidade: document.getElementById('campoCidade').value || null,
+              estado: document.getElementById('campoUf').value || null,
+              escolaridade: cand.escolaridade || null,
+              experiencias: cand.experiencia ? [{ descricao: cand.experiencia }] : [],
+              cursos: cand.cursos ? [{ nome: cand.cursos }] : [],
+              status: 'Novo'
+            })
+          });
+          if (resp.ok) {
+            enviadoNuvem = true;
+          }
+        } catch(err) {
+          console.error('Erro ao enviar para o Supabase:', err);
+        }
+      }
+
+      // Salva também localmente como contingência
+      const lista = getLista();
+      lista.unshift(cand);
+      localStorage.setItem('candidatos_infralink', JSON.stringify(lista));
+
+      alert('Candidatura enviada com sucesso para a vaga: ' + cargoAtual + '!\nObrigado por se candidatar à Infralink Engenharia de Manutenção.');
+      document.getElementById('candidateForm').reset();
+    }
+
+    function renderizarTabela(lista) {
+      const dados = lista || getLista();
+      const tbody = document.getElementById('tabelaCurriculos');
+      if (!dados || dados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum currículo cadastrado ainda.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = dados.map(c => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-3 font-mono">${c.data}</td>
+          <td class="p-3 font-bold">${c.nome} (${c.idade}a)</td>
+          <td class="p-3"><span class="bg-blue-100 text-blue-900 px-2 py-0.5 rounded text-[11px] font-semibold">${c.cargo}</span></td>
+          <td class="p-3">${c.tel}</td>
+          <td class="p-3">${c.endereco}</td>
+          <td class="p-3 text-right">
+            <button onclick='gerarPDF(${JSON.stringify(c)})' class="px-2.5 py-1 bg-[#0a2540] text-white text-[11px] rounded font-semibold hover:bg-slate-800">PDF</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function gerarPDF(c) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFillColor(10, 37, 64);
+      doc.rect(0, 0, 210, 26, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
+      doc.text("INFRALINK ENGENHARIA DE MANUTENÇÃO", 15, 11);
+      doc.setFontSize(8.5);
+      doc.setTextColor(255, 165, 0);
+      doc.text("FICHA DE REGISTRO E QUALIFICAÇÃO PROFISSIONAL", 15, 17);
+      doc.setTextColor(220, 220, 220);
+      doc.text(`Vaga Pretendida: ${c.cargo.toUpperCase()} | Cadastro: ${c.data}`, 15, 23);
+
+      doc.setTextColor(20, 20, 20);
+      doc.setFontSize(11);
+      doc.text(`Nome Completo: ${c.nome} | Idade: ${c.idade} anos`, 15, 36);
+      doc.text(`Telefone: ${c.tel} | E-mail: ${c.email}`, 15, 43);
+      doc.text(`CPF: ${c.cpf || 'Não inf.'} | RG: ${c.rg || 'Não inf.'}`, 15, 50);
+      doc.text(`Endereço: ${c.endereco}`, 15, 57);
+      doc.text(`Escolaridade: ${c.escolaridade}`, 15, 64);
+      doc.text(`Experiência Profissional:`, 15, 74);
+      doc.setFontSize(9.5);
+      doc.text(doc.splitTextToSize(c.experiencia || 'Sem experiência anterior informada.', 180), 15, 80);
+      doc.setFontSize(11);
+      doc.text(`Cursos e Certificações:`, 15, 110);
+      doc.setFontSize(9.5);
+      doc.text(doc.splitTextToSize(c.cursos || 'Nenhum curso informado.', 180), 15, 116);
+
+      doc.save(`Curriculo_${c.nome.replace(/\s+/g, '_')}.pdf`);
+    }
+
+    function exportarCSV() {
+      const lista = getLista();
+      let csv = 'Data;Nome;Idade;Cargo;Telefone;Email;Endereco;Escolaridade\n';
+      lista.forEach(c => {
+        csv += `"${c.data}";"${c.nome}";"${c.idade}";"${c.cargo}";"${c.tel}";"${c.email}";"${c.endereco}";"${c.escolaridade}"\n`;
+      });
+      const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'candidaturas_infralink.csv';
+      a.click();
+    }
+  </script>
+</body>
+</html>
