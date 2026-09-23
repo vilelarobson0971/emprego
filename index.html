@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal de Vagas e Ficha de Candidatura - Infralink Engenharia de Manutenção</title>
+  <title>Infralink Engenharia de Manutenção - Ficha de Candidatura</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,57 +15,66 @@
     @media print {
       .no-print { display: none !important; }
       body { background: white !important; font-size: 11pt !important; }
-      .print-only { display: block !important; }
     }
   </style>
-<script src="/_aistudio-iframe.js?v=2c34bde1"></script></head>
+</head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col justify-between">
   
-  <!-- Header -->
+  <!-- CABEÇALHO -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 no-print">
     <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      
+      <!-- LOGO: INFRALINK (Infra em Azul Marinho #0a2540 e link em Laranja #ff6b00) -->
       <div class="flex items-center gap-3">
-        <!-- Logo Infralink -->
-        <div class="w-10 h-10 rounded-xl bg-[#0a2540] flex items-center justify-center shadow-xs border border-blue-900/30">
+        <div class="w-10 h-10 rounded-xl bg-[#0a2540] flex items-center justify-center shadow-sm border border-blue-900/30">
           <svg class="w-6 h-6 text-[#ff6b00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         </div>
         <div>
           <span class="text-xl font-black block font-display leading-tight tracking-tight">
-            <span class="text-[#0a2540]">Infra</span><span class="text-[#ff6b00]">link</span>
+            <span style="color: #0a2540;">Infra</span><span style="color: #ff6b00;">link</span>
           </span>
-          <span class="text-[11px] text-slate-600 font-bold uppercase tracking-wider block">Engenharia de Manutenção</span>
+          <span class="text-[11px] text-slate-500 font-bold uppercase tracking-wider block">Engenharia de Manutenção</span>
         </div>
       </div>
+
+      <!-- BOTÃO DISCRETO DA ÁREA DO RECRUTADOR -->
       <div class="flex items-center gap-2">
         <button id="btnAbrirAdmin" onclick="abrirModalSenha()" class="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg flex items-center gap-1.5 transition-colors">
           🔒 Área do Recrutador
         </button>
       </div>
+
     </div>
   </header>
 
-  <!-- VIEW: FORMULÁRIO DO CANDIDATO -->
+  <!-- FORMULÁRIO DO CANDIDATO -->
   <main id="viewForm" class="max-w-4xl mx-auto px-4 py-8 flex-1 w-full">
+    
+    <!-- CARD DO CARGO ATIVO -->
     <div class="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div>
         <div class="flex items-center gap-2">
-          <span class="text-[11px] font-bold text-[#0a2540] uppercase tracking-wider">Vaga Selecionada para esta Ficha</span>
-          <span class="text-[10px] bg-orange-100 text-[#ea580c] px-2 py-0.5 rounded font-bold">🔒 Definida pelo Recrutador</span>
+          <span class="text-[11px] font-bold text-[#0a2540] uppercase tracking-wider">Vaga Selecionada</span>
+          <span class="text-[10px] bg-orange-100 text-[#ea580c] px-2 py-0.5 rounded font-bold">🔒 Definida pela Administração</span>
         </div>
         <h2 id="displayCargo" class="text-xl font-bold text-slate-900 font-display mt-0.5">Técnico de Manutenção</h2>
         <p class="text-xs text-slate-600">Somente a administração da Infralink pode definir ou alterar o cargo desta ficha.</p>
       </div>
-      <button onclick="abrirModalSenha()" class="text-xs font-semibold text-[#0a2540] bg-white hover:bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-lg whitespace-nowrap shadow-xs">Alterar Cargo (Admin)</button>
+      <button onclick="abrirModalSenha()" class="text-xs font-semibold text-[#0a2540] bg-white hover:bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-lg whitespace-nowrap shadow-xs">
+        Alterar Cargo (Admin)
+      </button>
     </div>
 
+    <!-- CAMPOS DA FICHA -->
     <form id="candidateForm" onsubmit="enviarCandidatura(event)" class="space-y-6 bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+      
       <h3 class="text-base font-bold text-slate-900 pb-2 border-b border-slate-200 font-display">1. Dados Pessoais</h3>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="sm:col-span-2">
           <label class="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
-          <input type="text" id="campoNome" required placeholder="Ex: Carlos Eduardo de Oliveira" class="w-full px-3.5 py-2 text-sm border rounded-xl">
+          <input type="text" id="campoNome" required placeholder="Ex: Carlos Eduardo de Oliveira" class="w-full px-3.5 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-700 mb-1">Data de Nascimento</label>
@@ -135,14 +144,14 @@
         </div>
       </div>
 
-      <h3 class="text-base font-bold text-slate-900 pb-2 border-b border-slate-200 font-display pt-4">4. Experiência & Cursos</h3>
+      <h3 class="text-base font-bold text-slate-900 pb-2 border-b border-slate-200 font-display pt-4">4. Experiência & Qualificações</h3>
       <div>
         <label class="block text-xs font-semibold text-slate-700 mb-1">Experiência Profissional (Empresas, Cargos e Períodos)</label>
-        <textarea id="campoExp" rows="3" placeholder="Ex: Empresa ABC - Oficial de Manutenção (2022 a 2024) - Manutenção preventiva e corretiva..." class="w-full px-3.5 py-2 text-sm border rounded-xl"></textarea>
+        <textarea id="campoExp" rows="3" placeholder="Ex: Empresa ABC - Técnico de Manutenção (2022 a 2024)..." class="w-full px-3.5 py-2 text-sm border rounded-xl"></textarea>
       </div>
       <div>
         <label class="block text-xs font-semibold text-slate-700 mb-1">Cursos e Certificações (NR-10, NR-35, Elétrica, etc.)</label>
-        <textarea id="campoCursos" rows="2" placeholder="Ex: NR-10 (40h), NR-35, Comandos Elétricos (SENAI)..." class="w-full px-3.5 py-2 text-sm border rounded-xl"></textarea>
+        <textarea id="campoCursos" rows="2" placeholder="Ex: NR-10 (40h), NR-35, Manutenção Predial..." class="w-full px-3.5 py-2 text-sm border rounded-xl"></textarea>
       </div>
 
       <button type="submit" class="w-full py-4 bg-[#0a2540] hover:bg-slate-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-base">
@@ -151,35 +160,36 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
         </svg>
       </button>
+
     </form>
   </main>
 
-  <!-- VIEW: PAINEL DO RECRUTADOR -->
+  <!-- PAINEL DO RECRUTADOR (PROTEGIDO POR SENHA) -->
   <main id="viewAdmin" class="hidden max-w-7xl mx-auto px-4 py-8 flex-1 w-full">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
       <div>
         <h2 class="text-2xl font-bold font-display text-slate-900">Painel do Recrutador - Infralink</h2>
-        <p class="text-xs text-slate-500">Gestão de currículos sincronizados com o banco de dados Supabase em tempo real</p>
+        <p class="text-xs text-slate-500">Currículos sincronizados em tempo real com o banco de dados Supabase na nuvem</p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button onclick="mostrarView('form')" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1">
+        <button onclick="mostrarView('form')" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold">
           ← Voltar para Ficha
         </button>
         <button onclick="definirNovoCargo()" class="px-3.5 py-2 bg-[#0a2540] hover:bg-slate-800 text-white rounded-lg text-xs font-bold">
           Definir Cargo da Vaga
         </button>
-        <button onclick="logoutAdmin()" class="px-3 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold hover:bg-rose-100">
+        <button onclick="logoutAdmin()" class="px-3 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold">
           Sair
         </button>
       </div>
     </div>
 
-    <!-- Tabela de Candidaturas -->
+    <!-- TABELA DE CURRÍCULOS -->
     <div class="bg-white border rounded-xl overflow-hidden shadow-xs mb-8">
       <div class="p-4 border-b flex justify-between items-center bg-slate-50">
         <span class="text-xs font-bold uppercase tracking-wider text-slate-600">Currículos Recebidos</span>
         <div class="flex gap-2">
-          <button onclick="carregarCurriculos()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg flex items-center gap-1">
+          <button onclick="carregarCurriculos()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg">
             🔄 Atualizar
           </button>
           <button onclick="exportarCSV()" class="text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white border px-3 py-1.5 rounded-lg">
@@ -199,53 +209,23 @@
               <th class="p-3 text-right">Ação</th>
             </tr>
           </thead>
-          <tbody id="tabelaCurriculos" class="divide-y divide-slate-100">
-            <!-- Inserido dinamicamente -->
-          </tbody>
+          <tbody id="tabelaCurriculos" class="divide-y divide-slate-100"></tbody>
         </table>
-      </div>
-    </div>
-
-    <!-- Configuração de Conexão Supabase -->
-    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-sm font-bold text-slate-900 font-display">Conexão com Banco de Dados Nuvem (Supabase)</h3>
-          <p class="text-xs text-slate-500">Credenciais ativas e configuradas para sincronização direta.</p>
-        </div>
-        <span id="badgeSupabaseStatus" class="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">● Conectado ao Supabase (Nuvem Ativa)</span>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-        <div>
-          <label class="block text-[11px] font-semibold text-slate-700 mb-1">Project URL do Supabase</label>
-          <input type="text" id="cfgSupabaseUrl" class="w-full px-3 py-1.5 text-xs border rounded-lg bg-slate-50">
-        </div>
-        <div>
-          <label class="block text-[11px] font-semibold text-slate-700 mb-1">API Publishable / Anon Key</label>
-          <input type="text" id="cfgSupabaseKey" class="w-full px-3 py-1.5 text-xs border rounded-lg bg-slate-50">
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between">
-        <p class="text-[11px] text-slate-500">Projeto: <strong>njmqrgrjfunfaizfchhe</strong> | Região: São Paulo</p>
-        <button onclick="salvarConfigSupabase()" class="px-4 py-2 bg-[#0a2540] hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors">
-          Atualizar Conexão
-        </button>
       </div>
     </div>
   </main>
 
+  <!-- RODAPÉ -->
   <footer class="mt-8 border-t border-slate-200 py-6 text-center text-xs text-slate-500 bg-white no-print">
     <p>© 2026 Infralink Engenharia de Manutenção. Todos os direitos reservados.</p>
   </footer>
 
-  <!-- Modal de Senha -->
+  <!-- MODAL DE SENHA -->
   <div id="modalSenha" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
       <h3 class="text-base font-bold text-slate-900 font-display mb-1">Acesso Restrito ao Recrutador</h3>
-      <p class="text-xs text-slate-500 mb-4">Digite a senha de recrutador para visualizar currículos ou alterar cargos.</p>
-      <input type="password" id="inputSenha" placeholder="Senha do recrutador" class="w-full p-2.5 text-sm border rounded-xl mb-3">
+      <p class="text-xs text-slate-500 mb-4">Infralink Engenharia de Manutenção</p>
+      <input type="password" id="inputSenha" placeholder="Senha (Infralink@2026)" class="w-full p-2.5 text-sm border rounded-xl mb-3">
       <p id="msgErroSenha" class="text-xs text-rose-600 hidden mb-2 font-medium">Senha incorreta!</p>
       <div class="flex gap-2">
         <button onclick="fecharModalSenha()" class="flex-1 py-2 text-xs bg-slate-100 rounded-xl">Cancelar</button>
@@ -255,9 +235,9 @@
   </div>
 
   <script>
-    // Configurações Pré-instaladas do Supabase da Infralink
-    let SUPABASE_URL = localStorage.getItem('supabase_url') || 'https://njmqrgrjfunfaizfchhe.supabase.co';
-    let SUPABASE_KEY = localStorage.getItem('supabase_key') || 'sb_publishable_iXvaaoES9YJUt8zfVDBH8g_GxZpP1eB';
+    // CHAVES DO SEU SUPABASE EMBUTIDAS
+    const SUPABASE_URL = 'https://njmqrgrjfunfaizfchhe.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_iXvaaoES9YJUt8zfVDBH8g_GxZpP1eB';
 
     let cargoAtual = localStorage.getItem('cargo_infralink') || 'Técnico de Manutenção';
     const params = new URLSearchParams(window.location.search);
@@ -274,7 +254,7 @@
     }
     function validarSenha() {
       const s = document.getElementById('inputSenha').value;
-      if (s === 'Brasa@2026' || s === 'Infralink@2026') {
+      if (s === 'Infralink@2026' || s === 'Brasa@2026') {
         fecharModalSenha();
         sessionStorage.setItem('recruiter_auth', 'true');
         mostrarView('admin');
@@ -304,7 +284,7 @@
         cargoAtual = novo.trim();
         localStorage.setItem('cargo_infralink', cargoAtual);
         document.getElementById('displayCargo').innerText = cargoAtual;
-        alert('Cargo atualizado para: ' + cargoAtual + '\nOs candidatos verão este cargo na ficha.');
+        alert('Cargo atualizado para: ' + cargoAtual);
       }
     }
     function calcularIdade(dataStr) {
@@ -331,35 +311,6 @@
       }
     }
 
-    function atualizarStatusSupabase() {
-      const badge = document.getElementById('badgeSupabaseStatus');
-      const inputUrl = document.getElementById('cfgSupabaseUrl');
-      const inputKey = document.getElementById('cfgSupabaseKey');
-      if (inputUrl) inputUrl.value = SUPABASE_URL;
-      if (inputKey) inputKey.value = SUPABASE_KEY;
-      if (badge) {
-        if (SUPABASE_URL && SUPABASE_KEY) {
-          badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800';
-          badge.innerText = '● Conectado ao Supabase (Nuvem Ativa)';
-        } else {
-          badge.className = 'text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600';
-          badge.innerText = 'Local (sem nuvem)';
-        }
-      }
-    }
-
-    function salvarConfigSupabase() {
-      const url = document.getElementById('cfgSupabaseUrl').value.trim();
-      const key = document.getElementById('cfgSupabaseKey').value.trim();
-      SUPABASE_URL = url;
-      SUPABASE_KEY = key;
-      localStorage.setItem('supabase_url', url);
-      localStorage.setItem('supabase_key', key);
-      atualizarStatusSupabase();
-      alert('Configuração do Supabase salva com sucesso! Atualizando currículos...');
-      carregarCurriculos();
-    }
-
     function getLista() {
       try {
         return JSON.parse(localStorage.getItem('candidatos_infralink') || '[]');
@@ -367,39 +318,36 @@
     }
 
     async function carregarCurriculos() {
-      atualizarStatusSupabase();
-      if (SUPABASE_URL && SUPABASE_KEY) {
-        try {
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/candidaturas?select=*&order=data_cadastro.desc`, {
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': 'Bearer ' + SUPABASE_KEY
-            }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const formatados = data.map(item => ({
-              id: item.id,
-              data: new Date(item.data_cadastro).toLocaleDateString('pt-BR') + ' às ' + new Date(item.data_cadastro).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
-              cargo: item.cargo,
-              nome: item.nome_completo,
-              idade: item.idade || '',
-              nasc: item.data_nascimento || '',
-              cpf: item.cpf || '',
-              rg: item.rg || '',
-              tel: item.telefone,
-              email: item.email,
-              endereco: (item.logradouro || '') + ' ' + (item.numero || '') + ' - ' + (item.cidade || '') + '/' + (item.estado || ''),
-              escolaridade: item.escolaridade || '',
-              experiencia: typeof item.experiencias === 'string' ? item.experiencias : (Array.isArray(item.experiencias) ? item.experiencias.map(e => `${e.empresa || e.descricao || ''} (${e.cargo || ''})`).join('; ') : ''),
-              cursos: typeof item.cursos === 'string' ? item.cursos : (Array.isArray(item.cursos) ? item.cursos.map(c => `${c.nome || ''}`).join('; ') : '')
-            }));
-            renderizarTabela(formatados);
-            return;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/candidaturas?select=*&order=data_cadastro.desc`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY
           }
-        } catch(err) {
-          console.error('Erro ao buscar do Supabase:', err);
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const formatados = data.map(item => ({
+            id: item.id,
+            data: new Date(item.data_cadastro).toLocaleDateString('pt-BR') + ' às ' + new Date(item.data_cadastro).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}),
+            cargo: item.cargo,
+            nome: item.nome_completo,
+            idade: item.idade || '',
+            nasc: item.data_nascimento || '',
+            cpf: item.cpf || '',
+            rg: item.rg || '',
+            tel: item.telefone,
+            email: item.email,
+            endereco: (item.logradouro || '') + ' ' + (item.numero || '') + ' - ' + (item.cidade || '') + '/' + (item.estado || ''),
+            escolaridade: item.escolaridade || '',
+            experiencia: typeof item.experiencias === 'string' ? item.experiencias : (Array.isArray(item.experiencias) ? item.experiencias.map(e => `${e.empresa || e.descricao || ''} (${e.cargo || ''})`).join('; ') : ''),
+            cursos: typeof item.cursos === 'string' ? item.cursos : (Array.isArray(item.cursos) ? item.cursos.map(c => `${c.nome || ''}`).join('; ') : '')
+          }));
+          renderizarTabela(formatados);
+          return;
         }
+      } catch(err) {
+        console.error('Erro ao buscar do Supabase:', err);
       }
       renderizarTabela(getLista());
     }
@@ -425,47 +373,41 @@
         cursos: document.getElementById('campoCursos').value
       };
 
-      // Se o Supabase estiver configurado, envia para a nuvem
-      let enviadoNuvem = false;
-      if (SUPABASE_URL && SUPABASE_KEY) {
-        try {
-          const resp = await fetch(`${SUPABASE_URL}/rest/v1/candidaturas`, {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': 'Bearer ' + SUPABASE_KEY,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-              cargo: cand.cargo,
-              nome_completo: cand.nome,
-              idade: parseInt(cand.idade, 10) || null,
-              data_nascimento: cand.nasc || null,
-              cpf: cand.cpf || null,
-              rg: cand.rg || null,
-              telefone: cand.tel,
-              email: cand.email,
-              cep: document.getElementById('campoCep').value || null,
-              logradouro: document.getElementById('campoRua').value || null,
-              bairro: document.getElementById('campoBairro').value || null,
-              cidade: document.getElementById('campoCidade').value || null,
-              estado: document.getElementById('campoUf').value || null,
-              escolaridade: cand.escolaridade || null,
-              experiencias: cand.experiencia ? [{ descricao: cand.experiencia }] : [],
-              cursos: cand.cursos ? [{ nome: cand.cursos }] : [],
-              status: 'Novo'
-            })
-          });
-          if (resp.ok) {
-            enviadoNuvem = true;
-          }
-        } catch(err) {
-          console.error('Erro ao enviar para o Supabase:', err);
-        }
+      // ENVIO DIRETO PARA O BANCO DE DADOS SUPABASE
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/candidaturas`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            cargo: cand.cargo,
+            nome_completo: cand.nome,
+            idade: parseInt(cand.idade, 10) || null,
+            data_nascimento: cand.nasc || null,
+            cpf: cand.cpf || null,
+            rg: cand.rg || null,
+            telefone: cand.tel,
+            email: cand.email,
+            cep: document.getElementById('campoCep').value || null,
+            logradouro: document.getElementById('campoRua').value || null,
+            bairro: document.getElementById('campoBairro').value || null,
+            cidade: document.getElementById('campoCidade').value || null,
+            estado: document.getElementById('campoUf').value || null,
+            escolaridade: cand.escolaridade || null,
+            experiencias: cand.experiencia ? [{ descricao: cand.experiencia }] : [],
+            cursos: cand.cursos ? [{ nome: cand.cursos }] : [],
+            status: 'Novo'
+          })
+        });
+      } catch(err) {
+        console.error('Erro ao enviar para o Supabase:', err);
       }
 
-      // Salva também localmente como contingência
+      // Salva no navegador como contingência
       const lista = getLista();
       lista.unshift(cand);
       localStorage.setItem('candidatos_infralink', JSON.stringify(lista));
@@ -478,7 +420,7 @@
       const dados = lista || getLista();
       const tbody = document.getElementById('tabelaCurriculos');
       if (!dados || dados.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum currículo cadastrado ainda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum currículo recebido ainda.</td></tr>';
         return;
       }
       tbody.innerHTML = dados.map(c => `
@@ -507,7 +449,7 @@
       doc.setTextColor(255, 165, 0);
       doc.text("FICHA DE REGISTRO E QUALIFICAÇÃO PROFISSIONAL", 15, 17);
       doc.setTextColor(220, 220, 220);
-      doc.text(`Vaga Pretendida: ${c.cargo.toUpperCase()} | Cadastro: ${c.data}`, 15, 23);
+      doc.text(`Vaga: ${c.cargo.toUpperCase()} | Cadastro: ${c.data}`, 15, 23);
 
       doc.setTextColor(20, 20, 20);
       doc.setFontSize(11);
